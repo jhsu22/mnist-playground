@@ -3,8 +3,12 @@ Main UI application
 """
 
 import customtkinter as ctk
+from sympy.polys.polytools import content
 
 from config import App
+from ui.container_frame import BaseFrame
+from ui.test_frame import TestFrame
+from ui.train_frame import TrainFrame
 
 
 class MnistPlayground(ctk.CTk):
@@ -18,11 +22,24 @@ class MnistPlayground(ctk.CTk):
         self.setup_ui()
 
     def setup_ui(self):
-        self.grid_columnconfigure(0, weight=1)
-        self.grid_rowconfigure(0, weight=1)
+        self.container = BaseFrame(self)
+        self.container.pack(fill="both", expand=True)
 
-        self.title = ctk.CTkLabel(self, text=App.TITLE, padx=20, pady=10)
-        self.title.grid(row=0, column=0, sticky="nsew")
+        content_frame = self.container.content_frame
+
+        content_frame.grid_rowconfigure(0, weight=1)
+        content_frame.grid_columnconfigure(0, weight=1)
+
+        self.train_ui = TrainFrame(content_frame)
+        self.train_ui.grid(row=0, column=0, sticky="nsew")
+
+        self.test_ui = TestFrame(content_frame)
+        self.test_ui.grid(row=0, column=0, sticky="nsew")
+
+        self.raise_frame(self.train_ui)
+
+    def raise_frame(self, frame_to_raise):
+        frame_to_raise.tkraise()
 
 
 if __name__ == "__main__":
