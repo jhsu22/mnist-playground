@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+/data
+/mnist_dataset/testing
+/mnist_dataset/training
+.env
+.DS_Store
