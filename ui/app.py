@@ -3,9 +3,8 @@ Main UI application
 """
 
 import customtkinter as ctk
-from sympy.polys.polytools import content
 
-from config import App
+from config import App, initialize_fonts
 from ui.container_frame import BaseFrame
 from ui.test_frame import TestFrame
 from ui.train_frame import TrainFrame
@@ -14,6 +13,9 @@ from ui.train_frame import TrainFrame
 class MnistPlayground(ctk.CTk):
     def __init__(self):
         super().__init__()
+
+        # Initialize fonts
+        initialize_fonts()
 
         # Window setup
         self.title(App.TITLE)

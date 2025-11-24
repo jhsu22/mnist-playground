@@ -136,8 +136,8 @@
     "text_color": ["#FFFFFF", "#FFFFFF"]
   },
   "CTkFont": {
-    "family": "Fantasque Sans Mono",
-    "size": 13,
-    "weight": "normal"
+    "family": "Albert Sans",
+    "size": 14,
+    "weight": "bold"
   }
 }

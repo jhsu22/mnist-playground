@@ -2,7 +2,9 @@
 Base ML model that will receive input configurations from UI
 """
 
+import torch
 import torch.nn as nn
+import torch.optim as optim
 
 
 class BaseModel(nn.Module):

@@ -1,6 +1,9 @@
 # config.py
 
 
+import customtkinter
+
+
 class Paths:
     """All directory paths used by the application"""
 
@@ -14,4 +17,70 @@ class App:
 
     TITLE = "MNIST Playground"
     GEOMETRY = "1200x800"
-    MODEL_LIST = ["Model 1", "Model 2", "Model 3"]
+    MODEL_LIST = ["Nanook", "Fuli", "Ena", "Akivili"]
+    OPTIMIZER_LIST = ["Adam", "SGD", "RMSprop"]
+    LAYER_LIST = ["Linear", "Conv2D", "MaxPooling2D"]
+
+    FONT_TITLE = None
+    FONT_REGULAR = None
+
+
+class Layers:
+    """All layer configurations used by the application"""
+
+    HYPERPARAMETERS = {
+        "epochs": 10,
+        "learning_rate": 0.001,
+        "batch_size": 32,
+        "optimizer": "Adam",
+        "activation": "relu",
+        "loss": "crossentropy",
+    }
+
+    LINEAR = {
+        "input_size": {"type": "int", "default": 784, "label": "Input Size"},
+        "output_size": {"type": "int", "default": 64, "label": "Output Size"},
+        "activation": {"type": "dropdown", "default": "relu",
+            "options": ["relu", "sigmoid", "tanh"],
+            "label": "Activation"}
+    }
+
+    CONV2D = {
+        "in_channels": {"type": "int", "default": 1, "label": "Input Channels"},
+        "out_channels": {"type": "int", "default": 32, "label": "Output Channels"},
+        "kernel_size": {"type": "int", "default": 3, "label": "Kernel Size"},
+        "stride": {"type": "int", "default": 1, "label": "Stride"},
+        "padding": {"type": "int", "default": 0, "label": "Padding"}
+    }
+
+    MAXPOOLING2D = {
+        "kernel_size": {"type": "int", "default": 2, "label": "Kernel Size"},
+        "strides": {"type": "int", "default": 2, "label": "Stride"}
+    }
+
+# Map layer parameters
+LAYER_PARAMS = {
+    "Linear": Layers.LINEAR,
+    "Conv2D": Layers.CONV2D,
+    "MaxPooling2D": Layers.MAXPOOLING2D
+ }
+
+class CurrentParameters:
+    def __init__(self):
+        self.epochs = Layers.HYPERPARAMETERS["epochs"]
+        self.learning_rate = Layers.HYPERPARAMETERS["learning_rate"]
+        self.batch_size = Layers.HYPERPARAMETERS["batch_size"]
+        self.optimizer = Layers.HYPERPARAMETERS["optimizer"]
+        self.activation = Layers.HYPERPARAMETERS["activation"]
+        self.loss = Layers.HYPERPARAMETERS["loss"]
+
+
+parameters = CurrentParameters()
+
+
+def initialize_fonts():
+    """Initializes the application fonts"""
+    App.FONT_TITLE = customtkinter.CTkFont(family="Albert Sans", size=24, weight="bold")
+    App.FONT_REGULAR = customtkinter.CTkFont(
+        family="Albert Sans", size=14, weight="normal"
+    )
