@@ -1,6 +1,13 @@
 import customtkinter as ctk
+import threading
+
+from torch._inductor.config import batch_fusion
 
 from config import LAYER_PARAMS, App
+from core.model import BaseModel
+
+import torch
+import torch.nn as nn
 
 
 class TrainFrame(ctk.CTkFrame):
@@ -14,6 +21,12 @@ class TrainFrame(ctk.CTkFrame):
         # Initialize layer list and index
         self.layers = []  # List of layer dictionaries
         self.selected_layer_index = None  # Track what layer is selected
+
+        # Intialize training status
+        self.training_status = False
+        self.current_epoch = 0
+        self.current_loss = 0
+        self.current_accuracy = 0
 
         # Setup model selection
         self.setup_model_selection()
@@ -154,6 +167,12 @@ class TrainFrame(ctk.CTkFrame):
 
     def _update_param(self, param_name, new_value):
         current_layer = self.layers[self.selected_layer_index]
+
+        layer_type = current_layer["type"]
+        param_info = LAYER_PARAMS[layer_type][param_name]
+
+        if param_info["type"] == "int":
+            new_value = int(new_value)
 
         current_layer["params"][param_name] = new_value
 
@@ -363,11 +382,157 @@ class TrainFrame(ctk.CTkFrame):
 
         self.current_row += 1
 
+    def _build_model(self):
+        """Build the ML model based on the user inputs"""
+
+        # Get hyperparameters from UI entries
+        hyperparams = {
+            "learning_rate": float(self.learning_rate_entry.get() or 0.001),
+            "epochs": int(self.epochs_entry.get() or 10),
+            "batch_size": int(self.batch_size_entry.get() or 32),
+            "optimizer": self.optimizer_entry.get() or "Adam"
+        }
+
+        # Create model
+        model = BaseModel(self.layers)
+
+        # Create optimizer
+        optimizer = model.get_optimizer(hyperparams["optimizer"], hyperparams["learning_rate"])
+
+        return model, optimizer, hyperparams
+
+    def _start_training(self):
+        """Run training loop in a separate thread"""
+        training_thread = threading.Thread(target=self._training_loop)
+        training_thread.start()
+
+    def _training_loop(self):
+        """Training loop for ML model"""
+        # Build model
+        model, optimizer, hyperparams = self._build_model()
+
+        # Set device (use GPU if available)
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        model.to(device)
+
+        # Load data
+        train_loader = self._get_data_loader(hyperparams["batch_size"])
+
+        # Loss function
+        criterion = nn.CrossEntropyLoss()
+
+        self.training_status = True
+
+        # Training loop
+        for epoch in range(hyperparams["epochs"]):
+            model.train()
+            total_loss = 0
+            correct = 0
+            total = 0
+
+            for batch_x, batch_y in train_loader:
+                if not self.training_status:
+                    break
+
+                batch_x, batch_y = batch_x.to(device), batch_y.to(device)
+
+                # Forward pass
+                outputs = model(batch_x)
+                loss = criterion(outputs, batch_y)
+
+                # Backward pass and optimization
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
+
+                # Track training metrics
+                total_loss += loss.item()
+                _, predicted = torch.max(outputs.data, 1)
+                total += batch_y.size(0)
+                correct += (predicted == batch_y).sum().item()
+
+            self.current_epoch = epoch + 1
+            self.epochs_entry.insert("end", f"Epoch {self.current_epoch}")
+            self.current_loss = total_loss / len(train_loader)
+            self.loss_entry.insert("end", f"Loss: {self.current_loss:.4f}")
+            self.current_accuracy = 100 * correct / total
+            self.accuracy_entry.insert("end", f"Accuracy: {self.current_accuracy:.2f}%")
+
+        self.training_status = False
+
+    def _get_data_loader(self, batch_size):
+        """Get training data"""
+        from torchvision import transforms
+        from torchvision.datasets import ImageFolder
+        from torch.utils.data import DataLoader
+
+        transform = transforms.Compose([
+            transforms.Grayscale(num_output_channels=1),        # Ensure single channel
+            transforms.Resize((28, 28)),                        # Resize to 28x28
+            transforms.ToTensor(),
+            transforms.Normalize((0.1307,), (0.3081,))          # Normalize zero mean and std deviation
+        ])
+
+        train_dataset = ImageFolder(
+            root='mnist_dataset/training',
+            transform=transform
+        )
+
+        train_loader = DataLoader(
+            train_dataset,
+            batch_size=batch_size,
+            shuffle=True
+        )
+
+        return train_loader
+
+    def _get_test_loader(self, batch_size):
+        """Get the test data"""
+        from torchvision import transforms
+        from torchvision.datasets import ImageFolder
+        from torch.utils.data import DataLoader
+
+        transform = transforms.Compose([
+            transforms.Grayscale(num_output_channels=1),
+            transforms.Resize((28, 28)),
+            transforms.ToTensor(),
+            transforms.Normalize((0.1307,), (0.3081,))
+        ])
+
+        test_dataset = ImageFolder(
+            root='mnist_dataset/testing',
+            transform=transform
+        )
+
+        test_loader = DataLoader(
+            test_dataset,
+            batch_size=batch_size,
+            shuffle=False
+        )
+
+        return test_loader
+
+
+    def _stop_training(self):
+        self.training_status = False
+
     def setup_plot(self):
-        self.plot_label = ctk.CTkLabel(self, text="Model Performance")
-        self.plot_label.grid(
+        self.plot_frame = ctk.CTkFrame(self)
+        self.plot_frame.grid(
             row=0, column=3, padx=10, pady=10, sticky="nsew", rowspan=self.current_row
         )
+
+        self.plot_label = ctk.CTkLabel(self.plot_frame, text="Model Performance")
+        self.plot_label.grid(row=0, column=0, padx=10, pady=10)
+
+        self.epochs_entry = ctk.CTkTextbox(self.plot_frame)
+        self.epochs_entry.grid(row=1, column=0, padx=10, pady=10)
+
+        self.loss_entry = ctk.CTkTextbox(self.plot_frame)
+        self.loss_entry.grid(row=2, column=0, padx=10, pady=10)
+
+        self.accuracy_entry = ctk.CTkTextbox(self.plot_frame)
+        self.accuracy_entry.grid(row=3, column=0, padx=10, pady=10)
 
     def setup_bottom_buttons(self):
         self.button_frame = ctk.CTkFrame(self)
@@ -379,8 +544,8 @@ class TrainFrame(ctk.CTkFrame):
 
         self.current_row += 1
 
-        self.train_button = ctk.CTkButton(self.button_frame, text="Train Model")
+        self.train_button = ctk.CTkButton(self.button_frame, text="Train Model", command=self._start_training)
         self.train_button.pack(side="right", padx=10)
 
-        self.stop_button = ctk.CTkButton(self.button_frame, text="Stop Training")
+        self.stop_button = ctk.CTkButton(self.button_frame, text="Stop Training", command=self._stop_training)
         self.stop_button.pack(side="right", padx=10)

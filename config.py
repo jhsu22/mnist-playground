@@ -41,7 +41,7 @@ class Layers:
         "input_size": {"type": "int", "default": 784, "label": "Input Size"},
         "output_size": {"type": "int", "default": 64, "label": "Output Size"},
         "activation": {"type": "dropdown", "default": "relu",
-            "options": ["relu", "sigmoid", "tanh"],
+            "options": ["ReLU", "Sigmoid", "Tanh"],
             "label": "Activation"}
     }
 
@@ -64,19 +64,6 @@ LAYER_PARAMS = {
     "Conv2D": Layers.CONV2D,
     "MaxPooling2D": Layers.MAXPOOLING2D
  }
-
-class CurrentParameters:
-    def __init__(self):
-        self.epochs = Layers.HYPERPARAMETERS["epochs"]
-        self.learning_rate = Layers.HYPERPARAMETERS["learning_rate"]
-        self.batch_size = Layers.HYPERPARAMETERS["batch_size"]
-        self.optimizer = Layers.HYPERPARAMETERS["optimizer"]
-        self.activation = Layers.HYPERPARAMETERS["activation"]
-        self.loss = Layers.HYPERPARAMETERS["loss"]
-
-
-parameters = CurrentParameters()
-
 
 def initialize_fonts():
     """Initializes the application fonts"""
