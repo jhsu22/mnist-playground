@@ -1,8 +1,11 @@
 import customtkinter as ctk
 import threading
 
-from config import LAYER_PARAMS, App
+from CTkMessagebox import CTkMessagebox
+
+from config import LAYER_PARAMS, App, Paths
 from core.model import BaseModel, get_layer_output_shapes
+import os
 
 import torch
 import torch.nn as nn
@@ -26,6 +29,14 @@ class TrainFrame(ctk.CTkFrame):
         self.current_loss = 0
         self.current_accuracy = 0
 
+        # Track current model
+        self.current_model = None           # Actual PyTorch model
+        self.current_model_name = None      # Name of the current model
+        self.last_saved_layers = None       # For resetting
+
+        # Create models directory
+        os.makedirs(Paths.SAVED_MODELS_DIR, exist_ok=True)
+
         # Setup model selection
         self.setup_model_selection()
 
@@ -40,6 +51,255 @@ class TrainFrame(ctk.CTkFrame):
 
         # Create bottom buttons
         self.setup_bottom_buttons()
+
+    def _get_toplevel(self):
+        return self.winfo_toplevel()
+
+    def _get_saved_models(self):
+        """Get a list of saved models"""
+        if not os.path.exists(Paths.SAVED_MODELS_DIR):
+            return []
+
+        models = []
+
+        for file in os.listdir(Paths.SAVED_MODELS_DIR):
+            if file.endswith(".pth"):
+                models.append(file[:-4])
+
+        return sorted(models)
+
+    def _refresh_model_list(self):
+        """Refresh model selection dropdown"""
+        saved_models = self._get_saved_models()
+
+        if saved_models:
+            all_models = saved_models
+        else:
+            all_models = []
+
+        # Update model selection dropdown
+        self.model_selection.configure(values=all_models)
+
+        if self.current_model_name and self.current_model_name in all_models:
+            self.model_selection.set(self.current_model_name)
+        else:
+            self.model_selection.set(all_models[0])
+
+    def _new_model(self):
+        if self.layers and self.current_model is not None:
+            msg = CTkMessagebox(
+                master=self,
+                title="New Model",
+                message="Are you sure you want to create a new model?\nThis will discard your current model.",
+                icon="question",
+                option_1="No",
+                option_2="Yes"
+            )
+            if msg.get() != "Yes":
+                return
+
+        # Clear internal states
+        self.layers = []
+        self.selected_layer_index = None
+        self.current_model = None
+        self.current_model_name = None
+        self.last_saved_layers = None
+
+        # Clear UI
+        self._refresh_layer_list()
+        self._display_layer_params(None)
+
+        # Clear training displays
+        self.epochs_display.delete("1.0", "end")
+        self.loss_display.delete("1.0", "end")
+        self.accuracy_display.delete("1.0", "end")
+
+        # Clear hyperparameter entries
+        self.learning_rate_entry.delete(0, "end")
+        self.epochs_entry.delete(0, "end")
+        self.batch_size_entry.delete(0, "end")
+        self.optimizer_entry.set("Adam")
+
+        # Update model selector
+        self.model_selection.set("")
+
+    def _save_model(self):
+        """Save current model to .pth file"""
+        if not self.layers:
+            _ = CTkMessagebox(
+                master=self,
+                title="Save Model",
+                message="Your model has no layers. Add layers first.",
+                icon="warning"
+            )
+            return
+
+        # Get model name from dialog
+        dialog = ctk.CTkInputDialog(
+            text="Enter model name:",
+            title="Save Model"
+        )
+        model_name = dialog.get_input()
+
+        if not model_name:
+            return           # If user cancels dialog
+
+        # Remove invalid characters
+        model_name = "".join(c for c in model_name if c.isalnum() or c in "._- ")
+        model_name = model_name.strip()
+
+        if not model_name:
+            _ = CTkMessagebox(
+                master=self,
+                title="Save Model",
+                message="Invalid model name.",
+                icon="warning"
+            )
+            return
+
+        # Check if file exists
+        file_path = os.path.join(Paths.SAVED_MODELS_DIR, f"{model_name}.pth")
+        if os.path.exists(file_path):
+            msg = CTkMessagebox(
+                master=self,
+                title="Overwrite Model",
+                message=f"Model '{model_name}' already exists. Overwrite?",
+                icon="question",
+                option_1="No",
+                option_2="Yes"
+            )
+            if msg.get() != "Yes":
+                return
+
+        # Prepare model for saving
+        save_data = {
+            'layer_configs': self.layers,
+            'hyperparameters': {
+                'learning_rate': self.learning_rate_entry.get() or "0.001",
+                'epochs': self.epochs_entry.get() or "10",
+                'batch_size': self.batch_size_entry.get() or "32",
+                'optimizer': self.optimizer_entry.get() or "Adam"
+            }
+        }
+
+        if self.current_model is not None:
+            save_data['model_state_dict'] = self.current_model.state_dict()
+
+        # Save model
+        torch.save(save_data, file_path)
+        self.current_model_name = model_name
+        self.last_saved_layers = [dict(layer) for layer in self.layers]
+
+        _ = CTkMessagebox(
+            master=self,
+            title="Save Model",
+            message=f"Model saved as '{model_name}.pth'",
+            icon="check"
+        )
+        self._refresh_model_list()
+
+    def _load_model(self):
+        """Load a model from a .pth file"""
+        model_name = self.model_selection.get()
+
+        if not model_name or model_name == "(No saved models)":
+            _ = CTkMessagebox(
+                master=self,
+                title="Load Model",
+                message="No model selected.",
+                icon="warning"
+            )
+            return
+
+        file_path = os.path.join(Paths.SAVED_MODELS_DIR, f"{model_name}.pth")
+
+        if not os.path.exists(file_path):
+            _ = CTkMessagebox(
+                master=self,
+                title="Load Model",
+                message=f"Model '{model_name}' not found.",
+                icon="cancel"
+            )
+            return
+
+        # Load the model
+        save_data = torch.load(file_path, weights_only=False)
+
+        # Restore layer configuration
+        self.layers = save_data.get('layer_configs', [])
+
+        # Get hyperparameters
+        hyperparams = save_data.get('hyperparameters', {})
+
+        # Restore hyperparameters
+        self.learning_rate_entry.delete(0, "end")
+        self.learning_rate_entry.insert(0, hyperparams.get('learning_rate', '0.001'))
+
+        self.epochs_entry.delete(0, "end")
+        self.epochs_entry.insert(0, hyperparams.get('epochs', '10'))
+
+        self.batch_size_entry.delete(0, "end")
+        self.batch_size_entry.insert(0, hyperparams.get('batch_size', '32'))
+
+        self.optimizer_entry.set(hyperparams.get('optimizer', 'Adam'))
+
+        # Rebuild model if the saved file has weights
+        if 'model_state_dict' in save_data and self.layers:
+            self.current_model = BaseModel(self.layers)
+            self.current_model.load_state_dict(save_data['model_state_dict'])
+            self.current_model.eval()
+        else:
+            self.current_model = None
+
+        self.current_model_name = model_name
+        self.last_saved_layers = [dict(layer) for layer in self.layers]
+
+        # Refresh UI
+        self.selected_layer_index = None
+        self._refresh_layer_list()
+        self._display_layer_params(None)
+
+        # Clear training displays (temp until graphs)
+        self.epochs_display.delete("1.0", "end")
+        self.loss_display.delete("1.0", "end")
+        self.accuracy_display.delete("1.0", "end")
+
+        _ = CTkMessagebox(
+            master=self,
+            title="Load Model",
+            message=f"Model '{model_name}' loaded successfully.",
+            icon="check"
+        )
+
+    def _reset_model(self):
+        if self.last_saved_layers is not None:
+            msg = CTkMessagebox(
+                master=self,
+                title="Reset Model",
+                message="Reset to last saved state?\n(Current changes will be lost)",
+                icon="question",
+                option_1="No",
+                option_2="Yes"
+            )
+            if msg.get() == "Yes":
+                self.layers = [dict(layer) for layer in self.last_saved_layers]
+                self.selected_layer_index = None
+                self._refresh_layer_list()
+                self._display_layer_params(None)
+                self.epochs_display.delete("1.0", "end")
+                self.loss_display.delete("1.0", "end")
+                self.accuracy_display.delete("1.0", "end")
+        else:
+            msg = CTkMessagebox(
+                master=self,
+                title="Reset Model",
+                message="No saved state. Clear all layers?",
+                icon="question",
+                option_1="No",
+                option_2="Yes"
+            )
+            if msg.get() == "Yes":
+                self._new_model()
 
     def _add_layer(self):
         # Get layer type from user input
@@ -258,14 +518,14 @@ class TrainFrame(ctk.CTkFrame):
         )
 
         self.new_model_button = ctk.CTkButton(
-            self.model_buttons_frame, text="New Model"
+            self.model_buttons_frame, text="New Model", command=self._new_model
         )
         self.new_model_button.grid(row=0, column=0, padx=5, pady=(5, 0), sticky="w")
 
-        self.save_button = ctk.CTkButton(self.model_buttons_frame, text="Save Model")
+        self.save_button = ctk.CTkButton(self.model_buttons_frame, text="Save Model", command=self._save_model)
         self.save_button.grid(row=0, column=1, padx=5, pady=(5, 0), sticky="w")
 
-        self.reset_button = ctk.CTkButton(self.model_buttons_frame, text="Reset Model")
+        self.reset_button = ctk.CTkButton(self.model_buttons_frame, text="Reset Model", command=self._reset_model)
         self.reset_button.grid(row=0, column=2, padx=5, pady=(5, 0), sticky="w")
 
         self.current_row += 1

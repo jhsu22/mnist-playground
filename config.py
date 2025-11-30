@@ -7,7 +7,7 @@ import customtkinter
 class Paths:
     """All directory paths used by the application"""
 
-    SAVED_MODELS_DIR = "saved_models"
+    SAVED_MODELS_DIR = "models"
     DATASET_DIR = "mnist_dataset"
     THEME_PATH = "assets/themes/dark.json"
 
@@ -17,7 +17,7 @@ class App:
 
     TITLE = "MNIST Playground"
     GEOMETRY = "1200x800"
-    MODEL_LIST = ["Nanook", "Fuli", "Ena", "Akivili"]
+    MODEL_LIST = [""]
     OPTIMIZER_LIST = ["Adam", "SGD", "RMSprop"]
     LAYER_LIST = ["Linear", "Conv2D", "MaxPooling2D", "Flatten"]
 
