@@ -9,6 +9,7 @@ class Paths:
 
     SAVED_MODELS_DIR = "models"
     DATASET_DIR = "mnist_dataset"
+    TEST_DIR = "mnist_dataset/testing"
     THEME_PATH = "assets/themes/dark.json"
 
 

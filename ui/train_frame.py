@@ -6,7 +6,6 @@ from CTkMessagebox import CTkMessagebox
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
-from pandas._libs.algos import pad
 
 from config import LAYER_PARAMS, App, Paths
 from core.model import BaseModel, get_layer_output_shapes
@@ -19,6 +18,11 @@ import torch.nn as nn
 class TrainFrame(ctk.CTkFrame):
     def __init__(self, master):
         super().__init__(master)
+
+        self.grid_columnconfigure(0, weight=0)  # Layer list - fixed
+        self.grid_columnconfigure(1, weight=0)  # Param panel - fixed
+        self.grid_columnconfigure(2, weight=0)  # Spacing
+        self.grid_columnconfigure(3, weight=1)  # Plots - expandable
 
         # Initialize location variables
         self.layer_row = 0
@@ -930,7 +934,7 @@ class TrainFrame(ctk.CTkFrame):
         ])
 
         test_dataset = ImageFolder(
-            root='mnist_dataset/testing',
+            root=Paths.TEST_DIR,
             transform=transform
         )
 
@@ -953,6 +957,7 @@ class TrainFrame(ctk.CTkFrame):
             row=0, column=3, padx=10, pady=10, sticky="nsew", rowspan=self.current_row
         )
 
+        # Make plot frame expand
         self.plot_frame.grid_rowconfigure(1, weight=1)
         self.plot_frame.grid_columnconfigure(0, weight=1)
 
@@ -960,13 +965,13 @@ class TrainFrame(ctk.CTkFrame):
         self.plot_label = ctk.CTkLabel(
             self.plot_frame,
             text="Training Progress",
-            font=ctk.CTkFont(size=16, weight="bold")
+            font=ctk.CTkFont(family="Albert Sans", size=18, weight="bold")
         )
         self.plot_label.grid(row=0, column=0, padx=10, pady=10, sticky="ew")
 
         # Create matplotlib figure
         plt.style.use('dark_background')
-        self.fig = Figure(figsize=(6,8), dpi=100, facecolor='#1a1a1a')
+        self.fig = Figure(figsize=(6, 8), dpi=100, facecolor='#1a1a1a')
 
         # Create subplots for loss and accuracy
         self.ax_loss = self.fig.add_subplot(211)
@@ -974,19 +979,27 @@ class TrainFrame(ctk.CTkFrame):
 
         # Loss plot styling
         self.ax_loss.set_facecolor('#1a1a1a')
-        self.ax_loss.set_xlabel('Epoch', color='white')
-        self.ax_loss.set_ylabel('Loss', color='white')
-        self.ax_loss.set_title('Training Loss', color='white',fontsize=12, pad=10)
-        self.ax_loss.grid(True, alpha=0.8, linestyle='--')
-        self.ax_loss.tick_params(colors='white')
+        self.ax_loss.set_xlabel('Epoch', color='white', fontfamily='Albert Sans', fontsize=11)
+        self.ax_loss.set_ylabel('Loss', color='white', fontfamily='Albert Sans', fontsize=11)
+        self.ax_loss.set_title('Training Loss', color='white', fontfamily='Albert Sans', fontsize=14, fontweight='bold', pad=10)
+        self.ax_loss.grid(True, alpha=0.2, linestyle='-', color='gray')
+        self.ax_loss.tick_params(colors='white', labelsize=9)
+        self.ax_loss.spines['top'].set_visible(False)
+        self.ax_loss.spines['right'].set_visible(False)
+        self.ax_loss.spines['left'].set_color('white')
+        self.ax_loss.spines['bottom'].set_color('white')
 
         # Accuracy plot styling
         self.ax_accuracy.set_facecolor('#1a1a1a')
-        self.ax_accuracy.set_xlabel('Epoch', color='white')
-        self.ax_accuracy.set_ylabel('Accuracy (%)', color='white')
-        self.ax_accuracy.set_title('Training Accuracy', color='white',fontsize=12, pad=10)
-        self.ax_accuracy.grid(True, alpha=0.8, linestyle='--')
-        self.ax_accuracy.tick_params(colors='white')
+        self.ax_accuracy.set_xlabel('Epoch', color='white', fontfamily='Albert Sans', fontsize=11)
+        self.ax_accuracy.set_ylabel('Accuracy (%)', color='white', fontfamily='Albert Sans', fontsize=11)
+        self.ax_accuracy.set_title('Training Accuracy', color='white', fontfamily='Albert Sans', fontsize=14, fontweight='bold', pad=10)
+        self.ax_accuracy.grid(True, alpha=0.2, linestyle='-', color='gray')
+        self.ax_accuracy.tick_params(colors='white', labelsize=9)
+        self.ax_accuracy.spines['top'].set_visible(False)
+        self.ax_accuracy.spines['right'].set_visible(False)
+        self.ax_accuracy.spines['left'].set_color('white')
+        self.ax_accuracy.spines['bottom'].set_color('white')
 
         self.fig.tight_layout(pad=3)
 
@@ -995,16 +1008,9 @@ class TrainFrame(ctk.CTkFrame):
         self.canvas.draw()
         self.canvas.get_tk_widget().grid(row=1, column=0, padx=10, pady=10, sticky="nsew")
 
-        # Initialize plots
-        self.loss_line, = self.ax_loss.plot([], [], color='red', linewidth=2, label='Loss')
-        self.accuracy_line, = self.ax_accuracy.plot([], [], color='green', linewidth=2, label='Accuracy')
-
-        self.ax_loss.legend(loc='upper right')
-        self.ax_accuracy.legend(loc='lower right')
-
-        # Data output textbox
-        self.output_textbox = ctk.CTkTextbox(self.plot_frame, width=200, height=200)
-        self.output_textbox.grid(row=1, column=1, padx=10, pady=10, sticky="nsew")
+        # Initialize plots with red color
+        self.loss_line, = self.ax_loss.plot([], [], color='#E74C3C', linewidth=2.5)
+        self.accuracy_line, = self.ax_accuracy.plot([], [], color='#E74C3C', linewidth=2.5)
 
     def _update_plots(self):
         """Update training plots with new data"""
@@ -1020,6 +1026,7 @@ class TrainFrame(ctk.CTkFrame):
         self.ax_accuracy.autoscale_view()
 
         # Redraw canvas
+        self.fig.tight_layout(pad=3)
         self.canvas.draw()
         self.canvas.flush_events()
 
