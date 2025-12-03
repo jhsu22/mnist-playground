@@ -45,6 +45,8 @@ class DemoFrame(ctk.CTkFrame):
 
         self._refresh_model_list()
 
+        self._on_mode_change()
+
     def setup_controls(self):
         """Left side - control panel"""
         self.controls_frame = ctk.CTkFrame(self, width=300)
@@ -92,7 +94,7 @@ class DemoFrame(ctk.CTkFrame):
         self.radio_var = tk.IntVar(value=1)
         self.load_option_file = ctk.CTkRadioButton(
             self.controls_frame,
-            text="Load Data From File",
+            text="Load Images From Files",
             value=1,
             variable=self.radio_var,
             command=self._on_mode_change,
@@ -115,7 +117,7 @@ class DemoFrame(ctk.CTkFrame):
 
         load_option_draw = ctk.CTkRadioButton(
             self.controls_frame,
-            text="Draw Data",
+            text="Draw A Number!",
             value=2,
             variable=self.radio_var,
             command=self._on_mode_change,
@@ -251,6 +253,9 @@ class DemoFrame(ctk.CTkFrame):
         self.next_button = ctk.CTkButton(self.navigation_frame, text="Next", command=lambda: self._display_result(index=self.navigation_index+1))
         self.next_button.grid(row=0, column=1, padx=0, pady=5)
 
+        self.reset_canvas_button = ctk.CTkButton(self.navigation_frame, text="Reset Canvas")#, command=self._reset_canvas)
+        self.reset_canvas_button.grid(row=0, column=2, padx=10, pady=5)
+
     def _get_saved_models(self):
         """Get a list of saved models"""
         if not os.path.exists(Paths.SAVED_MODELS_DIR):
@@ -379,9 +384,15 @@ class DemoFrame(ctk.CTkFrame):
             self.directory_select_frame.pack(
                 after=self.load_option_file, padx=10, pady=5, anchor="w"
             )
+
+            # Hide clear canvas button
+            self.reset_canvas_button.grid_forget()
         elif self.radio_var.get() == 2:
             # Hide directory selection
             self.directory_select_frame.pack_forget()
+
+            # Show clear canvas button
+            self.reset_canvas_button.grid(row=0, column=2, padx=10, pady=5, sticky="w")
 
     def _start_analysis(self):
         if self.current_model is None:

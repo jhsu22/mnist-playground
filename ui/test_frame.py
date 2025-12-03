@@ -26,6 +26,7 @@ class TestFrame(ctk.CTkFrame):
         # Track current model
         self.current_model = None
         self.current_model_name = None
+        self.cbar = None
 
         # Testing status
         self.testing_status = False
@@ -84,7 +85,7 @@ class TestFrame(ctk.CTkFrame):
 
         self.run_test_button = ctk.CTkButton(
             self.controls_frame,
-            text="Run Test on MNIST Dataset",
+            text="Run Test on Test Dataset",
             command=self._start_testing,
             width=260,
             height=40,
@@ -493,6 +494,14 @@ class TestFrame(ctk.CTkFrame):
     def _update_plots(self):
         """Update confusion matrix and accuracy plots with test results"""
 
+        # Remove existing colorbar before clearing axes
+        if self.cbar:
+            try:
+                self.cbar.remove()
+            except Exception:
+                pass
+            self.cbar = None
+
         # Clear previous plots
         self.ax_confusion_matrix.clear()
         self.ax_accuracy.clear()
@@ -503,8 +512,8 @@ class TestFrame(ctk.CTkFrame):
         )
 
         # Add colorbar
-        cbar = self.confusion_matrix_fig.colorbar(im, ax=self.ax_confusion_matrix)
-        cbar.ax.tick_params(labelsize=9, colors="white")
+        self.cbar = self.confusion_matrix_fig.colorbar(im, ax=self.ax_confusion_matrix)
+        self.cbar.ax.tick_params(labelsize=9, colors="white")
 
         # Set ticks and labels
         self.ax_confusion_matrix.set_xticks(np.arange(10))
